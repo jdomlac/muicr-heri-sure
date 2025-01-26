@@ -1,0 +1,107 @@
+services:
+  #Frontpage dashboard
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    volumes:
+      - ./homepage-config:/app/config
+    restart: unless-stopped
+
+  #Homeassistant deployment
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+
+  #RIS project deployment (app + mqtt broker)
+  mqtt:
+    container_name: mqtt
+    image: eclipse-mosquitto:2.0
+    ports:
+      - 1883:1883
+    volumes:
+        - './mosquitto-data:/mosquitto'
+    command: 'mosquitto -c /mosquitto/mosquitto.conf'
+    restart: unless-stopped
+
+  anymqtt2hamqtt:
+    container_name: anymqtt2hamqtt
+    image: jdomlac/anymqtt2hamqtt
+    volumes:
+      - ./ris-config:/config
+    restart: unless-stopped
+
+  #Reverse proxy
+  nginx:
+    container_name: 'nginx-proxy-manager'
+    image: 'jc21/nginx-proxy-manager:latest'
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - nginx-config:/data
+      - letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+
+  #Status monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    volumes:
+      - uptime-kuma:/app/data
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    restart: unless-stopped
+
+  #TIG stack
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    volumes:
+        - influxdb:/var/lib/influxdb
+    restart: unless-stopped
+    env_file:
+        - .env
+
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    volumes:
+        - ./telegraf-config/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    restart: unless-stopped
+    env_file:
+        - .env
+          
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    volumes:
+        - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    env_file:
+        - .env
+
+volumes: 
+  homeassistant:
+    external: true
+
+  nginx-config:
+    external: true
+
+  letsencrypt:
+    external: true
+
+  uptime-kuma:
+    external: true
+
+  influxdb:
+    external: true
+
+  grafana-data:
+    external: true
